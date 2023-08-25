@@ -1,0 +1,157 @@
+type MemoryCardStatus = 'covered' | 'uncovered'
+
+export class MemoryCard {
+	private status: MemoryCardStatus = 'covered'
+	private _id: number
+	private _pairId: number
+	private _imageSrc: string
+
+	constructor(id: number, pairId: number, imageSrc: string) {
+		this._id = id
+		this._pairId = pairId
+		this._imageSrc = imageSrc
+	}
+
+	public get pairId(): number {
+		return this._pairId
+	}
+
+	public get image(): { src: string } {
+		return {
+			src: this._imageSrc,
+		}
+	}
+
+	public get id() {
+		return this._id
+	}
+
+	flip() {
+		this.status = this.status === 'covered' ? 'uncovered' : 'covered'
+	}
+
+	public get isUncovered() {
+		return this.status === 'uncovered'
+	}
+}
+
+export class Dealer {
+	constructor(
+		private cards: MemoryCard[],
+		private selectedCards: number[],
+	) {}
+
+	static useCards(cards: MemoryCard[], selectedCardsList: number[]) {
+		return new Dealer(cards, selectedCardsList)
+	}
+
+	getCardsOnTable() {
+		return this.cards.map(c => ({
+			id: c.id,
+			image: c.image,
+			isUncovered: c.isUncovered,
+			isSelected: this.selectedCards.some(id => id === c.id),
+		}))
+	}
+
+	flipCard(cardId: number) {
+		if (this.canFlipCard(cardId)) {
+			const target = this.findCard(cardId)
+
+			return target.flip()
+		}
+
+		throw Error('User cannot flip this card')
+	}
+
+	checkSelection() {
+		if (this.isSecondSelection()) {
+			const [firstCardId, secondCardId] = this.selectedCards
+
+			const isPair = this.checkIsPair(firstCardId, secondCardId)
+
+			if (isPair) {
+				/** @todo increase game session pts */
+				this.selectedCards.length = 0
+				return
+			}
+
+			this.selectedCards.length = 0
+
+			this.flipCard(firstCardId)
+			this.flipCard(secondCardId)
+			return
+		}
+
+		console.log('Not a second selection, skipping')
+	}
+
+	isSecondSelection() {
+		return this.selectedCards.length === 2
+	}
+
+	private checkIsPair(a: number, b: number) {
+		const firstCard = this.cards.find(c => c.id === a)
+		const secondCard = this.cards.find(c => c.id === b)
+
+		if (!firstCard || !secondCard) throw Error('Cards not found')
+
+		return firstCard.pairId === secondCard.pairId
+	}
+
+	private findCard(cardId: number) {
+		const target = this.cards.find(c => c.id === cardId)
+
+		if (!target) throw Error(`Failed to select card with id: <<${cardId}>>`)
+
+		return target
+	}
+
+	private canFlipCard(cardId: number) {
+		return (
+			this.selectedCards.length <= 1 &&
+			this.selectedCards.every(id => id !== cardId)
+		)
+	}
+}
+
+export class Player {
+	private _selectedCards: number[]
+	private _dealer: Dealer
+
+	constructor(selectedCardsList: number[], dealer: Dealer) {
+		this._selectedCards = selectedCardsList
+		this._dealer = dealer
+	}
+
+	selectCard(cardId: number) {
+		if (this.canSelectCard(cardId)) {
+			this._dealer.flipCard(cardId)
+			this._selectedCards.push(cardId)
+			return
+		}
+
+		throw Error(
+			'Cannot select the card, either it has already been selected or there are already 2 selected cards',
+		)
+	}
+
+	private canSelectCard(cardId: number) {
+		return (
+			this._selectedCards.length <= 1 &&
+			this._selectedCards.every(id => id !== cardId)
+		)
+	}
+}
+
+export const makeMemoryCards = (quantity: number): MemoryCard[] =>
+	Array(quantity)
+		.fill({})
+		.map((_, i) => {
+			const pairId = i < quantity / 2 ? i : i - quantity / 2
+			return new MemoryCard(
+				i,
+				pairId,
+				`https://loremflickr.com/320/240?lock=${pairId}`,
+			)
+		})

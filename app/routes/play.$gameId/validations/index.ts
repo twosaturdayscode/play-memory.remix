@@ -3,7 +3,7 @@ import { z } from 'zod'
 const CardFormSchema = z.discriminatedUnion('_action', [
 	z.object({
 		_action: z.literal('select-card'),
-		cardId: z.coerce.number(),
+		cardId: z.string(),
 	}),
 	z.object({
 		_action: z.literal('check-selection'),

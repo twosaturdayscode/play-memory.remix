@@ -1,7 +1,7 @@
 interface MemoryCardProps {
-	onClick(id: number): void
+	onClick(id: string): void
 	isUncovered: boolean
-	id: number
+	id: string
 	image: {
 		src: string
 	}
@@ -18,7 +18,7 @@ export function MemoryCard(props: MemoryCardProps) {
 		>
 			<div
 				className={`relative aspect-[4/3] w-full transition duration-300 perspective-[2000] ${
-					!props.isUncovered && 'hover:rotate-y-[30deg]'
+					!props.isUncovered && !props.disabled && 'hover:rotate-y-[30deg]'
 				}`}
 			>
 				<div

@@ -1,7 +1,7 @@
 /** @type {import('@remix-run/dev').AppConfig} */
 export default {
 	ignoredRouteFiles: ['**/.*'],
-	server: './server.ts',
+	server: './server/index.ts',
 	serverBuildPath: 'functions/[[path]].js',
 	serverConditions: ['worker'],
 	serverDependenciesToBundle: 'all',

@@ -1,5 +1,6 @@
-import { Dealer } from 'src/concepts'
-import { CardsCollection } from './cards-collection.server'
+import { GamesManager, PlayersManager } from 'src/concepts'
+import { playersCollection } from './collections/players-collection.server'
+import { gamesCollection } from './collections/games-collection.server'
 
-// eslint-disable-next-line react-hooks/rules-of-hooks
-export const dealer = Dealer.useCards(CardsCollection)
+export const playersManager = PlayersManager.summon(playersCollection)
+export const gamesManager = GamesManager.summon(gamesCollection)

@@ -2,20 +2,13 @@
 type Patcher<T> = (el: T) => T
 
 type SimpleCollectionOf<R extends object & { id: string }> = {
-	find(id: string): R
-	list(): R[]
-	patch(id: string, patcher: Patcher<R>): void
-	add(id: string, props: Omit<R, 'id'>): void
+	find(id: string): Promise<R>
+	// list(): Promise<R[]>
+	patch(id: string, patcher: Patcher<R>): Promise<void>
+	save(id: string, props: Omit<R, 'id'>): Promise<void>
 	/** @todo: add delete */
 	// delete(id: string): void
 }
-
-/** A fixed collection, is simply a collection with a constant number of elements */
-type FixedCollectionOf<R extends object & { id: string }> = Omit<
-	SimpleCollectionOf<R>,
-	'add'
-	// 'add' | 'delete'
->
 
 /** MEMORY CARDS */
 
@@ -29,8 +22,6 @@ export type MemoryCard = {
 	}
 	status: MemoryCardStatus
 }
-
-export interface MemoryCardsCollection extends FixedCollectionOf<MemoryCard> {}
 
 /** GAMES */
 
@@ -51,24 +42,34 @@ export type Player = {
 
 export type PlayerProps = Omit<Player, 'id'>
 
-export interface PlayersCollection extends SimpleCollectionOf<Player> {}
+export interface PlayersCollection
+	extends Omit<SimpleCollectionOf<Player>, 'list'> {}
 
 export class Dealer {
-	constructor(private cc: MemoryCardsCollection) {}
+	// @question: maybe instead of an array a Map could be better
+	constructor(
+		private cc: MemoryCard[], // private gc: GamesCollection,
+	) {}
 
-	static summon(cardsCollection: MemoryCardsCollection) {
-		return new Dealer(cardsCollection)
+	static summon(deck: MemoryCard[] /* gamesCollection: GamesCollection */) {
+		return new Dealer(deck /* gamesCollection */)
 	}
 
 	getCardsOnTable() {
 		/** We don't want to send the pair id to client */
-		return this.cc.list().map(({ pairId, ...card }) => card)
+		return this.cc.map(({ pairId, ...card }) => card)
+	}
+
+	/**
+	 * For testing
+	 */
+	listMemoryCards() {
+		return this.cc
 	}
 
 	selectCard(cardId: string) {
-		if (this.canSelectCard(cardId)) {
-			return this.cc.patch(cardId, c => ({ ...c, status: 'selected' }))
-		}
+		if (this.canSelectCard(cardId))
+			return this.setCardStatus(cardId, 'selected')
 
 		throw Error('User cannot select this card')
 	}
@@ -76,7 +77,7 @@ export class Dealer {
 	checkSelection(): {
 		result: 'hit' | 'miss'
 	} {
-		const [card1, card2] = this.cc.list().filter(c => c.status === 'selected')
+		const [card1, card2] = this.cc.filter(c => c.status === 'selected')
 
 		if (!card1 || !card2) {
 			throw Error('To check selection there must be selected 2 cards')
@@ -85,61 +86,31 @@ export class Dealer {
 		const isPair = card1.pairId === card2.pairId
 
 		if (isPair) {
-			/** @todo increase game session pts */
-			this.cc.patch(card1.id, c => ({ ...c, status: 'discovered' }))
-			this.cc.patch(card2.id, c => ({ ...c, status: 'discovered' }))
+			this.setCardStatus(card1.id, 'discovered')
+			this.setCardStatus(card2.id, 'discovered')
 			return { result: 'hit' }
 		}
 
-		this.cc.patch(card1.id, c => ({ ...c, status: 'covered' }))
-		this.cc.patch(card2.id, c => ({ ...c, status: 'covered' }))
+		this.setCardStatus(card1.id, 'covered')
+		this.setCardStatus(card2.id, 'covered')
 		return { result: 'miss' }
 	}
 
 	private canSelectCard(cardId: string) {
-		const selectedCards = this.cc.list().filter(c => c.status === 'selected')
+		const selectedCards = this.cc.filter(c => c.status === 'selected')
 
 		return (
 			selectedCards.length <= 1 &&
 			!selectedCards.map(c => c.id).includes(cardId)
 		)
 	}
-}
 
-export class GamesManager {
-	constructor(private gc: GamesCollection) {}
+	private setCardStatus(cardId: string, status: MemoryCard['status']) {
+		const i = this.cc.findIndex(c => c.id === cardId)
 
-	static summon(gamesCollection: GamesCollection) {
-		return new GamesManager(gamesCollection)
-	}
+		if (i < 0) throw Error(`Can't update card with id: ${cardId}`)
 
-	listGames() {
-		return this.gc.list()
-	}
-
-	findGame(id: string) {
-		return this.gc.find(id)
-	}
-
-	getGameScoreUpdater(id: string) {
-		const updateScoreWith = (pts: number) => () =>
-			this.gc.patch(id, g => ({ ...g, score: g.score + pts }))
-
-		return updateScoreWith
-	}
-
-	newGame(id: string, board: MemoryCard[]) {
-		const newGame: Game = {
-			id,
-			board,
-			score: 0,
-		}
-
-		return this.gc.add(id, newGame)
-	}
-
-	updateGameBoard(id: string, board: MemoryCard[]) {
-		return this.gc.patch(id, g => ({ ...g, board }))
+		this.cc[i].status = status
 	}
 }
 
@@ -150,21 +121,17 @@ export class PlayersManager {
 		return new PlayersManager(playersCollection)
 	}
 
-	listPlayers() {
-		return this.pc.list()
-	}
-
 	findPlayer(id: string) {
 		return this.pc.find(id)
 	}
 
 	addPlayer(id: string) {
 		console.log(`New player added with id: ${id}`)
-		return this.pc.add(id, { games: [] })
+		return this.pc.save(id, { games: [] })
 	}
 
-	addNewGameToPlayer(id: string, gameId: string) {
-		this.pc.patch(id, p => ({ ...p, games: [...p.games, gameId] }))
+	addGameToPlayer(id: string, gameId: string) {
+		return this.pc.patch(id, p => ({ ...p, games: [...p.games, gameId] }))
 	}
 }
 

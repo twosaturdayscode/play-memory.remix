@@ -1,5 +1,4 @@
 import { Dealer, type MemoryCard, makeMemoryCards } from 'src/concepts'
-import { MemoryCardsCollectionInMem } from 'src/services/memory-cards-collection.in-memory'
 
 import { describe, expect, test } from 'vitest'
 
@@ -19,10 +18,9 @@ describe('Dealer can be trusted', t => {
 	t('Correct number of cards employed', () => {
 		/** init */
 		const deck = makeMemoryCards(16)
-		const col = MemoryCardsCollectionInMem.fromDeck(deck)
-		const dlr = Dealer.summon(col)
+		const dlr = Dealer.summon(deck)
 
-		const table = dlr.getCardsOnTable()
+		const table = dlr.listMemoryCards()
 
 		expect(table.length).toBe(16)
 	})
@@ -30,10 +28,9 @@ describe('Dealer can be trusted', t => {
 	t('All cards are initially covered', () => {
 		/** init */
 		const deck = makeMemoryCards(16)
-		const col = MemoryCardsCollectionInMem.fromDeck(deck)
-		const dlr = Dealer.summon(col)
+		const dlr = Dealer.summon(deck)
 
-		const table = dlr.getCardsOnTable()
+		const table = dlr.listMemoryCards()
 
 		expect(table.every(c => c.status === 'covered')).toBe(true)
 	})
@@ -41,33 +38,30 @@ describe('Dealer can be trusted', t => {
 	t('Dealer selects first card for user', () => {
 		/** init */
 		const deck = makeMemoryCards(16)
-		const col = MemoryCardsCollectionInMem.fromDeck(deck)
-		const dlr = Dealer.summon(col)
+		const dlr = Dealer.summon(deck)
 
-		const table = dlr.getCardsOnTable()
+		const table = dlr.listMemoryCards()
 
 		dlr.selectCard(table[0].id)
 
-		const target = col.find(table[0].id)
+		console.log(table)
 
-		expect(target.status === 'selected').toBe(true)
+		expect(table[0].status === 'selected').toBe(true)
 	})
 
 	t('Dealer selects first two cards for user', () => {
 		/** init */
 		const deck = makeMemoryCards(16)
-		const col = MemoryCardsCollectionInMem.fromDeck(deck)
-		const dlr = Dealer.summon(col)
+		const dlr = Dealer.summon(deck)
 
-		const [first, second] = dlr.getCardsOnTable()
+		const [first, second] = dlr.listMemoryCards()
 
 		dlr.selectCard(first.id)
 		dlr.selectCard(second.id)
 
-		const t1 = col.find(first.id)
-		const t2 = col.find(second.id)
-
-		expect(t1.status === 'selected' && t2.status === 'selected').toBe(true)
+		expect(first.status === 'selected' && second.status === 'selected').toBe(
+			true,
+		)
 	})
 
 	test.fails(
@@ -75,15 +69,14 @@ describe('Dealer can be trusted', t => {
 		async () => {
 			/** init */
 			const deck = makeMemoryCards(16)
-			const col = MemoryCardsCollectionInMem.fromDeck(deck)
-			const dlr = Dealer.summon(col)
+			const dlr = Dealer.summon(deck)
 
-			const [first, second, third] = dlr.getCardsOnTable()
+			const [first, second, third] = dlr.listMemoryCards()
 
 			dlr.selectCard(first.id)
 			dlr.selectCard(second.id)
 
-			await expect(dlr.selectCard(third.id)).rejects.toBe(1)
+			expect(dlr.selectCard(third.id)).rejects.toBe(1)
 		},
 	)
 
@@ -92,12 +85,11 @@ describe('Dealer can be trusted', t => {
 		() => {
 			/** init */
 			const deck = makeMemoryCards(16)
-			const col = MemoryCardsCollectionInMem.fromDeck(deck)
-			const dlr = Dealer.summon(col)
+			const dlr = Dealer.summon(deck)
 
-			const [target] = col.list()
+			const [target] = dlr.listMemoryCards()
 
-			const [p1, p2] = col.list().reduce((acc, curr) => {
+			const [p1, p2] = dlr.listMemoryCards().reduce((acc, curr) => {
 				if (curr.pairId === target.pairId) {
 					acc.push(curr)
 					return acc
@@ -111,10 +103,7 @@ describe('Dealer can be trusted', t => {
 
 			dlr.checkSelection()
 
-			const t1 = col.find(p1.id)
-			const t2 = col.find(p2.id)
-
-			expect(t1.status === 'discovered' && t2.status === 'discovered').toBe(
+			expect(p1.status === 'discovered' && p2.status === 'discovered').toBe(
 				true,
 			)
 		},
@@ -125,32 +114,27 @@ describe('Dealer can be trusted', t => {
 		() => {
 			/** init */
 			const deck = makeMemoryCards(16)
-			const col = MemoryCardsCollectionInMem.fromDeck(deck)
-			const dlr = Dealer.summon(col)
+			const dlr = Dealer.summon(deck)
 
-			const [p1, p2] = col.list()
+			const [p1, p2] = dlr.listMemoryCards()
 
 			dlr.selectCard(p1.id)
 			dlr.selectCard(p2.id)
 
 			dlr.checkSelection()
 
-			const t1 = col.find(p1.id)
-			const t2 = col.find(p2.id)
-
-			expect(t1.status === 'covered' && t2.status === 'covered').toBe(true)
+			expect(p1.status === 'covered' && p2.status === 'covered').toBe(true)
 		},
 	)
 
 	t('Dealer can select third card after discovering a pair', () => {
 		/** init */
 		const deck = makeMemoryCards(16)
-		const col = MemoryCardsCollectionInMem.fromDeck(deck)
-		const dlr = Dealer.summon(col)
+		const dlr = Dealer.summon(deck)
 
-		const [target, third] = col.list()
+		const [target, third] = dlr.listMemoryCards()
 
-		const [p1, p2] = col.list().reduce((acc, curr) => {
+		const [p1, p2] = dlr.listMemoryCards().reduce((acc, curr) => {
 			if (curr.pairId === target.pairId) {
 				acc.push(curr)
 				return acc
@@ -164,33 +148,12 @@ describe('Dealer can be trusted', t => {
 
 		dlr.checkSelection()
 
-		const t1 = col.find(p1.id)
-		const t2 = col.find(p2.id)
-
 		dlr.selectCard(third.id)
 
-		const t3 = col.find(third.id)
-
 		expect(
-			t1.status === 'discovered' &&
-				t2.status === 'discovered' &&
-				t3.status === 'selected',
+			p1.status === 'discovered' &&
+				p2.status === 'discovered' &&
+				third.status === 'selected',
 		).toBe(true)
-	})
-})
-
-describe('Memory cards collection behavior', t => {
-	t('Patching works', () => {
-		/** init */
-		const deck = makeMemoryCards(16)
-		const col = MemoryCardsCollectionInMem.fromDeck(deck)
-
-		const cards = col.list()
-
-		const { id } = cards[0]
-
-		col.patch(id, c => ({ ...c, status: 'selected' }))
-
-		expect(cards[0].status === 'selected').toBe(true)
 	})
 })

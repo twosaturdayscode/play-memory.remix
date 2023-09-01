@@ -6,16 +6,14 @@ import {
 } from '@remix-run/cloudflare'
 import { useFetcher, useLoaderData } from '@remix-run/react'
 import { MemoryCard } from './components/memory-card'
-import { gamesManager } from '~/configuration'
 import { validateFormData } from './validations'
 import { wait } from '~/utils/wait'
 import { useState } from 'react'
 import { Dealer } from 'src/concepts'
-import { MemoryCardsCollectionInMem } from 'src/services/memory-cards-collection.in-memory'
 
 const DEFAULT_BOARD_SIZE = 4
 
-export const action = async ({ request, params }: ActionArgs) => {
+export const action = async ({ request, params, context }: ActionArgs) => {
 	const f = validateFormData(Object.fromEntries(await request.formData()))
 	const gameId = params.gameId
 
@@ -23,51 +21,41 @@ export const action = async ({ request, params }: ActionArgs) => {
 		return redirect('/')
 	}
 
-	const game = gamesManager.findGame(gameId)
-	const increaseScoreBy10 = gamesManager.getGameScoreUpdater(gameId)(10)
-	const decreaseScoreBy5 = gamesManager.getGameScoreUpdater(gameId)(-5)
-
-	const memCardsCol = MemoryCardsCollectionInMem.fromDeck(game.board)
-	// eslint-disable-next-line react-hooks/rules-of-hooks
-	const dealer = Dealer.summon(memCardsCol)
+	const game = await context.gamesCollection.find(gameId)
+	const dealer = Dealer.summon(game.board)
 
 	if (f._action === 'select-card') {
 		dealer.selectCard(f.cardId)
+		await context.gamesCollection.save(gameId, {
+			...game,
+			board: dealer.listMemoryCards(),
+		})
 	}
 
 	if (f._action === 'check-selection') {
 		const { result } = dealer.checkSelection()
-
-		// I don't like if/else
-		if (result === 'hit') {
-			increaseScoreBy10()
-		} else {
-			decreaseScoreBy5()
-		}
+		await context.gamesCollection.save(gameId, {
+			...game,
+			board: dealer.listMemoryCards(),
+		})
 	}
 
 	return null
 }
 
-export const loader = async ({ request, params }: LoaderArgs) => {
+export const loader = async ({ context, params }: LoaderArgs) => {
 	const gameId = params.gameId
 
 	if (!gameId) {
 		return redirect('/')
 	}
 
-	try {
-		const game = gamesManager.findGame(gameId)
-		const memCardsCol = MemoryCardsCollectionInMem.fromDeck(game.board)
-		// eslint-disable-next-line react-hooks/rules-of-hooks
-		const dealer = Dealer.summon(memCardsCol)
+	const game = await context.gamesCollection.find(gameId)
+	const dealer = Dealer.summon(game.board)
 
-		const boardCards = dealer.getCardsOnTable()
+	const boardCards = dealer.getCardsOnTable()
 
-		return json({ boardCards, score: game.score })
-	} catch (error) {
-		return redirect('/')
-	}
+	return json({ boardCards, score: game.score })
 }
 
 export default function PlayPage() {

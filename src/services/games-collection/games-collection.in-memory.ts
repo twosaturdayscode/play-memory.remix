@@ -7,7 +7,7 @@ export class GamesCollectionInMem implements GamesCollection {
 		return new GamesCollectionInMem(gamesList)
 	}
 
-	find(id: string): Game {
+	async find(id: string): Promise<Game> {
 		const gme = this.games.find(g => g.id === id)
 
 		if (!gme) throw Error(`No games found with id: ${id}`)
@@ -15,16 +15,19 @@ export class GamesCollectionInMem implements GamesCollection {
 		return gme
 	}
 
-	list(): Game[] {
+	async list(): Promise<Game[]> {
 		return this.games
 	}
 
-	add(id: string, gamePs: GameProps): void {
-		this.games.push({ id, ...gamePs })
-		return
+	async save(id: string, gamePs: GameProps): Promise<void> {
+		const i = this.games.findIndex(g => g.id === id)
+
+		if (i < 0) this.games.push({ id, ...gamePs })
+
+		this.games[i] = { id, ...gamePs }
 	}
 
-	patch(id: string, patcher: (g: Game) => Game): void {
+	async patch(id: string, patcher: (g: Game) => Game): Promise<void> {
 		const index = this.games.findIndex(g => g.id === id)
 
 		if (index === -1) throw Error(`No games with id: ${id}`)

@@ -7,7 +7,6 @@ import {
 } from '@remix-run/cloudflare'
 import { getSession, commitSession } from '../../configuration/session.server'
 import { nanoid } from 'nanoid/non-secure'
-import { gamesManager, playersManager } from '~/configuration'
 import { Form, useLoaderData } from '@remix-run/react'
 import { validateFormData } from './validations'
 import { makeMemoryCards } from 'src/concepts'
@@ -16,33 +15,31 @@ export const meta: V2_MetaFunction = () => {
 	return [{ title: 'Home | Memory Remix' }]
 }
 
-export const action = async ({ request }: ActionArgs) => {
+export const action = async ({ request, context }: ActionArgs) => {
 	const fd = Object.fromEntries(await request.formData())
 	const { _action } = validateFormData(fd)
 
 	const session = await getSession(request.headers.get('Cookie'))
 	const userId = session.get('userId')! // I hate this exclamation point
-	console.log(userId)
 
 	if (_action === 'new-game') {
 		// Create a new game
 		const newGameId = nanoid(5)
 
 		const newDeck = makeMemoryCards(16)
-		gamesManager.newGame(newGameId, shuffle(newDeck))
-		playersManager.addNewGameToPlayer(userId, newGameId)
-
+		await context.gamesCollection.save(newGameId, {
+			board: shuffle(newDeck),
+			score: 0,
+		})
+		await context.playersManager.addGameToPlayer(userId, newGameId)
 		return redirect(`/play/${newGameId}`)
 	}
-
-	return null
 }
 
-export const loader = async ({ request }: LoaderArgs) => {
+export const loader = async ({ request, context }: LoaderArgs) => {
 	const session = await getSession(request.headers.get('Cookie'))
 	const h = new Headers()
-
-	console.log(playersManager.listPlayers().map(p => p.id))
+	const playersManager = context['playersManager']
 
 	/**
 	 * Since it's a demo app I did not want to put too much effort in
@@ -64,8 +61,10 @@ export const loader = async ({ request }: LoaderArgs) => {
 	const userId = session.get('userId')! // I hate this exclamation point
 	h.append('Set-Cookie', await commitSession(session))
 
-	const { games: userGamesList } = playersManager.findPlayer(userId)
-	const games = userGamesList.map(id => gamesManager.findGame(id))
+	const { games: userGamesList } = await playersManager.findPlayer(userId)
+	const games = await Promise.all(
+		userGamesList.map(id => context.gamesCollection.find(id)),
+	)
 
 	return json(
 		{ games: games.map(g => ({ id: g.id, score: g.score })), userId },
@@ -91,7 +90,10 @@ export default function Index() {
 				</header>
 				<ol className="flex flex-col gap-5 mb-20">
 					{games.map(g => (
-						<li key={g.id} className="flex justify-between items-center w-full px-20">
+						<li
+							key={g.id}
+							className="flex justify-between items-center w-full px-20"
+						>
 							<header className="flex flex-col gap-2">
 								<h1>
 									Game id: <strong>{g.id}</strong>
@@ -100,7 +102,9 @@ export default function Index() {
 									Game score: <strong>{g.score}</strong>
 								</p>
 							</header>
-							<a href={`play/${g.id}`} className='underline'>Go to game</a>
+							<a href={`play/${g.id}`} className="underline">
+								Go to game
+							</a>
 						</li>
 					))}
 				</ol>

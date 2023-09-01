@@ -7,7 +7,7 @@ export class PlayersCollectionInMem implements PlayersCollection {
 		return new PlayersCollectionInMem(playersList)
 	}
 
-	find(id: string): Player {
+	async find(id: string): Promise<Player> {
 		const plr = this.players.find(g => g.id === id)
 
 		if (!plr) throw Error(`No player found with id: ${id}`)
@@ -15,16 +15,12 @@ export class PlayersCollectionInMem implements PlayersCollection {
 		return plr
 	}
 
-	list(): Player[] {
-		return this.players
-	}
-
-	add(id: string, playerPs: PlayerProps): void {
+	async save(id: string, playerPs: PlayerProps): Promise<void> {
 		this.players.push({ id, ...playerPs })
 		return
 	}
 
-	patch(id: string, patcher: (p: Player) => Player): void {
+	async patch(id: string, patcher: (p: Player) => Player): Promise<void> {
 		const index = this.players.findIndex(p => p.id === id)
 
 		if (index === -1) throw Error(`No player with id: ${id}`)

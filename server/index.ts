@@ -13,11 +13,11 @@ export const onRequest = createPagesFunctionHandler({
 	build,
 	getLoadContext: context => {
 		const playersCollection = PlayersCollectionCloudKV.setup(
-			context.env['players-kv'],
+			context.env['memory-players-kv'],
 		)
 
 		const gamesCollection = GamesCollectionCloudKV.setup(
-			context.env['games-kv'],
+			context.env['memory-games-kv'],
 		)
 
 		return {

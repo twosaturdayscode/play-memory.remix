@@ -37,6 +37,7 @@ export const action = async ({ request, params, context }: ActionArgs) => {
 		await context.gamesCollection.save(gameId, {
 			...game,
 			board: dealer.listMemoryCards(),
+			score: result === 'hit' ? game.score + 10 : game.score - 5,
 		})
 	}
 
